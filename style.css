@@ -345,3 +345,15 @@ img { max-width: 100%; height: auto; display: block; }
   /* ボタンのタッチ領域拡大 */
   .btn { padding: 0.9rem 1.6rem; font-size: 0.98rem; }
 }
+
+/* 強制表示: ハンバーガーボタンを常に表示（Vercelキャッシュなどで見えない場合の対処） */
+.nav-container { position: relative; }
+.nav-toggle {
+  display: inline-block !important;
+  margin-left: auto;
+  z-index: 9999 !important;
+}
+.hamburger, .hamburger::before, .hamburger::after {
+  background: var(--text-dark) !important;
+}
+.nav-menu { z-index: 9998; }
