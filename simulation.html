@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>シミュレーション - くろこーの物理の部屋</title>
+  <title>シミュレーション一覧 - くろこーの物理の部屋</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -27,16 +27,33 @@
   </nav>
 
   <header class="page-header">
-    <h1>シミュレーション</h1>
-    <p>物理の現象を視覚的に学べるシミュレーションを順次公開します。</p>
+    <h1>シミュレーション一覧</h1>
+    <p>ブラウザ上で実行できる物理シミュレーションを順次公開します。</p>
   </header>
 
   <main class="container">
+    <section class="content-grid">
+      <div class="card">
+        <div class="card-icon">🧲</div>
+        <h2>電場の可視化</h2>
+        <p>点電荷の配置に応じた電場のベクトル表示と電場線（フィールドライン）を確認できます。電荷を追加・移動して変化を見てみましょう。</p>
+        <a href="simulation-field.html" class="btn">開く</a>
+      </div>
+
+      <div class="card">
+        <div class="card-icon">🎯</div>
+        <h2>斜方投射 (弾道)</h2>
+        <p>発射角と初速を変えて弾道の挙動を観察します。空気抵抗はデフォルトで無しです。</p>
+        <a href="simulation-projectile.html" class="btn">開く</a>
+      </div>
+
+      <!-- 追加のシミュレーションカードはここに置けます -->
+
+    </section>
+
     <section class="about">
-      <h2>準備中</h2>
-      <p>現在、シミュレーションページは準備中です。簡単なブラウザ内シミュレーションや外部埋め込みを順次追加していきます。</p>
-      <p>リクエストがあれば作ってほしいシミュレーション（例：弾道、単振動、電場・磁場の可視化）を教えてください。</p>
-      <p><a href="index.html" class="btn">ホームに戻る</a></p>
+      <h2>使い方</h2>
+      <p>各シミュレーションを開き、画面上の操作パネルやマウス・タッチで操作してください。スマホでも動作するよう最適化しています。</p>
     </section>
   </main>
 
