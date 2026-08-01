@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>電場の可視化 - くろこーの物理の部屋</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .sim-controls { display:flex; flex-wrap:wrap; gap:0.6rem; align-items:center; margin-bottom:1rem; }
+    .sim-controls .group { display:flex; gap:0.4rem; align-items:center; }
+    #sim-canvas { width:100%; height:60vh; background:#fff; border:1px solid #e0e0e0; border-radius:8px; display:block; }
+    .legend { font-size:0.9rem; color:var(--text-gray); margin-top:0.6rem }
+    @media (max-width:768px){ #sim-canvas { height:50vh; } }
+  </style>
+</head>
+<body>
+  <!-- ナビ -->
+  <nav class="navbar">
+    <div class="nav-container">
+      <div class="logo">くろこーの物理の部屋</div>
+      <button class="nav-toggle" aria-label="メニュー" aria-expanded="false" aria-controls="nav-menu">
+        <span class="hamburger"></span>
+      </button>
+      <ul class="nav-menu" id="nav-menu">
+        <li><a href="index.html">ホーム</a></li>
+        <li><a href="lecture.html">講義資料</a></li>
+        <li><a href="notes.html">物理虎の巻</a></li>
+        <li><a href="videos.html">動画</a></li>
+        <li><a href="links.html">リンク集</a></li>
+        <li><a href="teachers.html">先生方へ</a></li>
+        <li><a href="simulation.html">シミュレーション</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <header class="page-header">
+    <h1>電場の可視化</h1>
+    <p>点電荷を配置して電場ベクトルやフィールドラインを観察します。タッチ/ドラッグで電荷を移動できます。</p>
+  </header>
+
+  <main class="container">
+    <section class="about">
+      <div class="sim-controls" id="controls">
+        <div class="group">
+          <button id="add-pos" class="btn">＋ 正電荷</button>
+          <button id="add-neg" class="btn">− 負電荷</button>
+          <button id="clear" class="btn">リセット</button>
+        </div>
+        <div class="group">
+          <label><input type="checkbox" id="showVectors" checked> ベクトル表示</label>
+          <label><input type="checkbox" id="showLines" checked> 電場線表示</label>
+        </div>
+        <div class="group">
+          <label>電荷量: <input type="range" id="qRange" min="-5" max="5" step="0.1" value="1"></label>
+          <span id="qVal">1.0</span>
+        </div>
+      </div>
+      <canvas id="sim-canvas"></canvas>
+      <div class="legend">操作: 追加した電荷を長押し/ドラッグで移動。電荷をダブルタップ（ダブルクリック）で削除。</div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p>&copy; 2026 くろこーの物理の部屋. All rights reserved.</p>
+  </footer>
+
+<script>
+(function(){
+  // 基本設定
+  const canvas = document.getElementById('sim-canvas');
+  const ctx = canvas.getContext('2d');
+  let DPR = window.devicePixelRatio || 1;
+
+  function resize(){
+    DPR = window.devicePixelRatio || 1;
+    const w = canvas.clientWidth;
+    const h = canvas.clientHeight;
+    canvas.width = Math.floor(w * DPR);
+    canvas.height = Math.floor(h * DPR);
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  // シミュレーション状態
+  const charges = [];
+  const k = 1; // 定数は1にスケーリング
+
+  // UI 要素
+  const addPos = document.getElementById('add-pos');
+  const addNeg = document.getElementById('add-neg');
+  const clearBtn = document.getElementById('clear');
+  const showVectors = document.getElementById('showVectors');
+  const showLines = document.getElementById('showLines');
+  const qRange = document.getElementById('qRange');
+  const qVal = document.getElementById('qVal');
+
+  qRange.addEventListener('input', ()=> qVal.textContent = qRange.value);
+
+  function addCharge(x,y,q){
+    charges.push({x,y,q});
+    draw();
+  }
+
+  addPos.addEventListener('click', ()=>{
+    const q = Math.abs(parseFloat(qRange.value)) || 1;
+    addCharge(canvas.clientWidth/2, canvas.clientHeight/2, q);
+  });
+  addNeg.addEventListener('click', ()=>{
+    const q = -Math.abs(parseFloat(qRange.value)) || -1;
+    addCharge(canvas.clientWidth/2 + 30, canvas.clientHeight/2, q);
+  });
+  clearBtn.addEventListener('click', ()=>{ charges.length=0; draw(); });
+
+  // 描画関数
+  function E_at(px,py){
+    // returns vector {Ex,Ey}
+    let Ex=0, Ey=0;
+    for(const c of charges){
+      const dx = px - c.x;
+      const dy = py - c.y;
+      const r2 = dx*dx + dy*dy + 0.0001; // avoid div0
+      const r = Math.sqrt(r2);
+      const E = k * c.q / r2; // magnitude
+      Ex += E * dx / r;
+      Ey += E * dy / r;
+    }
+    return {Ex, Ey};
+  }
+
+  function draw(){
+    const w = canvas.clientWidth;
+    const h = canvas.clientHeight;
+    ctx.clearRect(0,0,w,h);
+
+    // 背景グリッド
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0,0,w,h);
+
+    // ベクトル表示
+    if(showVectors.checked){
+      const step = Math.max(20, Math.floor(w/30));
+      for(let x=step/2; x<w; x+=step){
+        for(let y=step/2; y<h; y+=step){
+          const v = E_at(x,y);
+          const mag = Math.sqrt(v.Ex*v.Ex + v.Ey*v.Ey);
+          if(!isFinite(mag) || mag < 1e-4) continue;
+          // scale for drawing
+          const s = Math.min(20, 20*mag/(1+mag));
+          const ux = v.Ex/mag; const uy = v.Ey/mag;
+          drawArrow(x,y, x+ux*s, y+uy*s, `rgba(0,0,0,${Math.min(0.9,0.15+mag/5)})`);
+        }
+      }
+    }
+
+    // フィールドライン表示
+    if(showLines.checked){
+      for(const c of charges){
+        // start field lines from positive charges only for clarity
+        const nSeeds = Math.max(8, Math.min(24, Math.floor(Math.abs(c.q)*8)));
+        const sign = Math.sign(c.q) || 1;
+        const startFromPositive = sign > 0;
+        if(startFromPositive){
+          for(let i=0;i<nSeeds;i++){
+            const angle = (i/nSeeds)*Math.PI*2;
+            const sx = c.x + Math.cos(angle)*8;
+            const sy = c.y + Math.sin(angle)*8;
+            traceFieldLine(sx,sy, 'rgba(200,20,20,0.9)');
+          }
+        }
+      }
+    }
+
+    // 電荷の描画
+    for(const c of charges){
+      drawCharge(c);
+    }
+  }
+
+  function drawCharge(c){
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, 12, 0, Math.PI*2);
+    ctx.fillStyle = c.q>0 ? '#ff6b6b' : '#4da6ff';
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#fff';
+    ctx.stroke();
+    ctx.fillStyle = '#fff';
+    ctx.font = '12px sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline='middle';
+    ctx.fillText((c.q>0?'+':'')+c.q.toFixed(1), c.x, c.y);
+  }
+
+  function drawArrow(x1,y1,x2,y2, color){
+    const ax = x2 - x1; const ay = y2 - y1;
+    const len = Math.sqrt(ax*ax + ay*ay);
+    if(len < 0.5) return;
+    const ux = ax/len; const uy = ay/len;
+    ctx.strokeStyle = color || '#000';
+    ctx.fillStyle = color || '#000';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(x1,y1);
+    ctx.lineTo(x2,y2);
+    ctx.stroke();
+    // head
+    const headlen = 6;
+    ctx.beginPath();
+    ctx.moveTo(x2,y2);
+    ctx.lineTo(x2 - ux*headlen + -uy*headlen*0.5, y2 - uy*headlen + ux*headlen*0.5);
+    ctx.lineTo(x2 - ux*headlen - -uy*headlen*0.5, y2 - uy*headlen - ux*headlen*0.5);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // フィールドラインを追跡
+  function traceFieldLine(sx,sy, color){
+    const path = [];
+    let x = sx, y = sy;
+    const maxSteps = 1200;
+    const dt = 4; // step size
+    for(let i=0;i<maxSteps;i++){
+      const v = E_at(x,y);
+      const mag = Math.sqrt(v.Ex*v.Ex + v.Ey*v.Ey);
+      if(!isFinite(mag) || mag < 1e-6) break;
+      // move in direction of field
+      const ux = v.Ex/mag, uy = v.Ey/mag;
+      // step scaled inversely with magnitude for stability
+      x += ux * dt;
+      y += uy * dt;
+      path.push([x,y]);
+      // stop if near any charge
+n      let stop=false;
+      for(const c of charges){
+        const dx = x - c.x; const dy = y - c.y;
+        if(Math.sqrt(dx*dx+dy*dy) < 8){ stop=true; break; }
+      }
+      if(x<0||y<0||x>canvas.clientWidth||y>canvas.clientHeight) break;
+      if(stop) break;
+    }
+    // draw path
+    if(path.length<2) return;
+    ctx.beginPath();
+    ctx.moveTo(sx,sy);
+    for(const p of path) ctx.lineTo(p[0],p[1]);
+    ctx.strokeStyle = color; ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+
+  // インタラクション: ドラッグ、ダブルクリックで削除
+  let dragging = null; let dragOffset = {x:0,y:0};
+  function getPointerPos(e){
+    const rect = canvas.getBoundingClientRect();
+    let clientX, clientY;
+    if(e.touches && e.touches[0]){ clientX = e.touches[0].clientX; clientY = e.touches[0].clientY; }
+    else { clientX = e.clientX; clientY = e.clientY; }
+    return {x: (clientX - rect.left), y: (clientY - rect.top)};
+  }
+
+  function findChargeAt(x,y){
+    for(let i=charges.length-1;i>=0;i--){
+      const c=charges[i]; const dx=x-c.x, dy=y-c.y;
+      if(Math.sqrt(dx*dx+dy*dy) < 14) return c;
+    }
+    return null;
+  }
+
+  canvas.addEventListener('pointerdown', (ev)=>{
+    ev.preventDefault();
+    const p = getPointerPos(ev);
+    const c = findChargeAt(p.x,p.y);
+    if(c){ dragging = c; dragOffset.x = p.x - c.x; dragOffset.y = p.y - c.y; }
+    else {
+      // tap empty → add positive by default with selected q
+      const q = parseFloat(qRange.value) || 1;
+      addCharge(p.x,p.y,q);
+    }
+  });
+
+  canvas.addEventListener('pointermove', (ev)=>{
+    if(!dragging) return;
+    ev.preventDefault();
+    const p = getPointerPos(ev);
+    dragging.x = p.x - dragOffset.x; dragging.y = p.y - dragOffset.y;
+    draw();
+  });
+
+  canvas.addEventListener('pointerup', (ev)=>{ dragging = null; });
+  canvas.addEventListener('pointerleave', (ev)=>{ dragging = null; });
+
+  // ダブルクリック／ダブルタップで削除
+  canvas.addEventListener('dblclick', (ev)=>{
+    const p = getPointerPos(ev);
+    const c = findChargeAt(p.x,p.y);
+    if(c){ const idx = charges.indexOf(c); if(idx>=0){ charges.splice(idx,1); draw(); } }
+  });
+
+  // 初期例: 二つの電荷
+  function addInitial(){
+    charges.length=0;
+    addCharge(canvas.clientWidth*0.4, canvas.clientHeight*0.5, 2);
+    addCharge(canvas.clientWidth*0.6, canvas.clientHeight*0.5, -2);
+  }
+
+  // ループ
+  function loop(){ draw(); requestAnimationFrame(loop); }
+
+  // controls change
+  showVectors.addEventListener('change', draw);
+  showLines.addEventListener('change', draw);
+  qRange.addEventListener('input', ()=>{ qVal.textContent = qRange.value; });
+  clearBtn.addEventListener('click', ()=>{ draw(); });
+
+  // initial
+  addInitial();
+  resize();
+  loop();
+
+  // ナビのスクリプト（共通）
+  document.addEventListener('DOMContentLoaded', function(){
+    const toggle = document.querySelector('.nav-toggle');
+    const menu = document.getElementById('nav-menu');
+    if (!toggle || !menu) return;
+    toggle.addEventListener('click', ()=> {
+      const expanded = toggle.getAttribute('aria-expanded') === 'true';
+      toggle.setAttribute('aria-expanded', String(!expanded));
+      menu.classList.toggle('open');
+    });
+    menu.querySelectorAll('a').forEach(a=>a.addEventListener('click', ()=> {
+      if (menu.classList.contains('open')) {
+        menu.classList.remove('open');
+        toggle.setAttribute('aria-expanded', 'false');
+      }
+    }));
+  });
+
+})();
+</script>
+</body>
+</html>
